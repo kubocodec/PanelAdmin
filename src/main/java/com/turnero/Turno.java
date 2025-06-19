@@ -3,17 +3,36 @@ package com.turnero;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+
 public class Turno {
-    private Long id;
-    private int numero;
-    private String categoria;
+    private int id;
+    private String numero;
+    private Categoria categoria;
 
-    public int getNumero() { return numero; }
-    public void setNumero(int numero) { this.numero = numero; }
+    // Getters obligatorios
+    public int getId() {
+        return id;
+    }
 
-    public String getCategoria() { return categoria; }
-    public void setCategoria(String categoria) { this.categoria = categoria; }
+    public String getNumero() {
+        return numero;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Categoria getCategoria() {
+        return categoria;
+    }
+
+    // Clase interna correctamente definida
+//    public static class Categoria {
+//        private int id;
+//        private String nombre;
+//
+//        public int getId() {
+//            return id;
+//        }
+//
+//        public String getNombre() {
+//            return nombre;
+//        }
+//    }
 }

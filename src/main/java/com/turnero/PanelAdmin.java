@@ -1,82 +1,993 @@
 package com.turnero;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import javafx.animation.*;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.*;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.Stop;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class PanelAdmin extends Application {
 
-    private Label lblTurno = new Label("Turno actual: ...");
-    private Label lblCategoria = new Label("");
+    // Componentes principales
+    private Stage primaryStage;
+    private Label lblTurnoActual;
+    private Label lblCategoria;
+    private Label lblEstado;
+    private Label lblHora;
+    private ComboBox<Integer> comboPuestos;
+    private Button btnLlamarTurno;
+    private Button btnPausarSistema;
+    private Button btnReiniciarTurnos;
+    private ProgressIndicator loadingIndicator;
+    private VBox statsContainer;
+
+    // Variables de estado
+    private boolean sistemaPausado = false;
+    private ScheduledExecutorService scheduler;
+    private TableView<TurnoDoble> tablaUnificada;
+
+    private ComboBox<Categoria> comboCategorias;
+    private ComboBox<String> comboTipo;
+
 
     @Override
     public void start(Stage stage) {
-        Button btnSiguiente = new Button("Siguiente Turno");
-        btnSiguiente.setOnAction(e -> avanzarTurno());
+        this.primaryStage = stage;
 
-        VBox root = new VBox(15, lblTurno, lblCategoria, btnSiguiente);
-        root.setPadding(new Insets(20));
-        root.setStyle("-fx-font-size: 16px;");
+        // Configurar la ventana
+        stage.setTitle("Sistema de Administración de Turnos - Panel de Control");
+        stage.setMinWidth(1200);
+        stage.setMinHeight(800);
 
-        Scene scene = new Scene(root, 300, 200);
+        // Crear el layout principal
+        BorderPane root = createMainLayout();
+
+        // Crear la escena
+        Scene scene = new Scene(root, 1200, 800);
+        scene.setFill(Color.web("#f8f9fa"));
+
         stage.setScene(scene);
-        stage.setTitle("Panel de Administración");
+        stage.centerOnScreen();
         stage.show();
 
+        // Inicializar datos y animaciones
+        inicializarSistema();
+
+        // Configurar actualizaciones automáticas
+        configurarActualizacionesAutomaticas();
+    }
+
+    private BorderPane createMainLayout() {
+        BorderPane root = new BorderPane();
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #f8f9fa, #e9ecef);");
+
+        // Header
+        VBox header = createHeader();
+        root.setTop(header);
+
+        // Contenido principal
+        HBox mainContent = createMainContent();
+        root.setCenter(mainContent);
+
+        // Footer con información del sistema
+        HBox footer = createFooter();
+        root.setBottom(footer);
+
+        return root;
+    }
+
+    private VBox createHeader() {
+        VBox header = new VBox();
+        header.setPadding(new Insets(20, 30, 20, 30));
+        header.setStyle(
+                "-fx-background-color: linear-gradient(to right, #2980b9, #3498db);" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);"
+        );
+
+        // Título principal
+        Label titulo = new Label("🏢 SISTEMA DE ADMINISTRACIÓN DE TURNOS");
+        titulo.setStyle(
+                "-fx-font-size: 28px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 1, 1);"
+        );
+
+        // Subtítulo con hora
+        HBox subtituloContainer = new HBox();
+        subtituloContainer.setAlignment(Pos.CENTER_LEFT);
+        subtituloContainer.setSpacing(20);
+
+        Label subtitulo = new Label("Panel de Control Administrativo");
+        subtitulo.setStyle(
+                "-fx-font-size: 16px;" +
+                        "-fx-text-fill: rgba(255,255,255,0.9);"
+        );
+
+        lblHora = new Label();
+        lblHora.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-text-fill: rgba(255,255,255,0.8);" +
+                        "-fx-font-family: 'Courier New';"
+        );
+        actualizarHora();
+
+        subtituloContainer.getChildren().addAll(subtitulo, new Region(), lblHora);
+        HBox.setHgrow(subtituloContainer.getChildren().get(1), Priority.ALWAYS);
+
+        header.getChildren().addAll(titulo, subtituloContainer);
+        return header;
+    }
+
+    private HBox createMainContent() {
+        HBox mainContent = new HBox(30);
+        mainContent.setPadding(new Insets(30));
+        mainContent.setAlignment(Pos.TOP_CENTER);
+
+        // Panel izquierdo - Control de turnos
+        VBox leftPanel = createControlPanel();
+
+        // Panel central - Información actual
+        VBox centerPanel = createCurrentTurnPanel();
+
+        // Panel derecho - Estadísticas
+        VBox rightPanel = createStatsPanel();
+
+        mainContent.getChildren().addAll(leftPanel, centerPanel, rightPanel);
+
+        return mainContent;
+    }
+
+    private VBox createControlPanel() {
+        VBox panel = new VBox(20);
+        panel.setPrefWidth(350);
+        panel.setPadding(new Insets(25));
+        panel.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 15px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5);"
+        );
+
+        // Título del panel
+        Label titulo = new Label("🎛️ CONTROL DE TURNOS");
+        titulo.setStyle(
+                "-fx-font-size: 18px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #2c3e50;"
+        );
+
+        // Separador
+        Separator separador = new Separator();
+        separador.setStyle("-fx-background-color: #ecf0f1;");
+
+        // Selección de puesto
+        VBox puestoContainer = new VBox(10);
+        Label lblPuesto = new Label("📍 Seleccionar Puesto de Atención:");
+        lblPuesto.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #34495e;"
+        );
+
+        comboPuestos = new ComboBox<>();
+        comboPuestos.getItems().addAll(1, 2, 3, 4, 5);
+        comboPuestos.setValue(1);
+        comboPuestos.setPrefWidth(280);
+        comboPuestos.setPrefHeight(40);
+        comboPuestos.setStyle(
+                "-fx-background-color: #f8f9fa;" +
+                        "-fx-border-color: #dee2e6;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-border-radius: 8px;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-font-size: 14px;"
+        );
+
+        puestoContainer.getChildren().addAll(lblPuesto, comboPuestos);
+
+        // Sección de categoría
+        VBox categoriaContainer = new VBox(10);
+        Label lblCategoria = new Label("📂 Seleccionar Categoría:");
+        lblCategoria.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #34495e;"
+        );
+
+        comboCategorias = new ComboBox<>();
+        comboCategorias.setPrefWidth(280);
+        comboCategorias.setPrefHeight(40);
+        comboCategorias.setStyle(
+                "-fx-background-color: #f8f9fa;" +
+                        "-fx-border-color: #dee2e6;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-border-radius: 8px;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-font-size: 14px;"
+        );
+
+        categoriaContainer.getChildren().addAll(lblCategoria, comboCategorias);
+
+// Sección de tipo
+        VBox tipoContainer = new VBox(10);
+        Label lblTipo = new Label("🧾 Tipo:");
+        lblTipo.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #34495e;"
+        );
+
+        comboTipo = new ComboBox<>();
+        comboTipo.getItems().addAll("General", "Preferencial");
+        comboTipo.setValue("General");
+        comboTipo.setPrefWidth(280);
+        comboTipo.setPrefHeight(40);
+        comboTipo.setStyle(
+                "-fx-background-color: #f8f9fa;" +
+                        "-fx-border-color: #dee2e6;" +
+                        "-fx-border-width: 2px;" +
+                        "-fx-border-radius: 8px;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-font-size: 14px;"
+        );
+
+        tipoContainer.getChildren().addAll(lblTipo, comboTipo);
+
+
+        // Botones de acción
+        VBox botonesContainer = new VBox(15);
+
+        // Botón llamar turno
+        btnLlamarTurno = createStyledButton("📢 LLAMAR SIGUIENTE TURNO", "#27ae60", "#2ecc71");
+        btnLlamarTurno.setOnAction(e -> llamarSiguienteTurno());
+
+        // Botón pausar sistema
+        btnPausarSistema = createStyledButton("⏸️ PAUSAR SISTEMA", "#e67e22", "#f39c12");
+        btnPausarSistema.setOnAction(e -> togglePausarSistema());
+
+        // Botón reiniciar turnos
+        btnReiniciarTurnos = createStyledButton("🔄 REINICIAR TURNOS", "#c0392b", "#e74c3c");
+        btnReiniciarTurnos.setOnAction(e -> reiniciarTurnos());
+
+        botonesContainer.getChildren().addAll(btnLlamarTurno, btnPausarSistema, btnReiniciarTurnos);
+
+        // Indicador de carga
+        loadingIndicator = new ProgressIndicator();
+        loadingIndicator.setPrefSize(30, 30);
+        loadingIndicator.setVisible(false);
+
+        //panel.getChildren().addAll(titulo, separador, puestoContainer, botonesContainer, loadingIndicator);
+        panel.getChildren().addAll(titulo, separador, puestoContainer, categoriaContainer, tipoContainer, botonesContainer, loadingIndicator);
+
+
+        return panel;
+    }
+
+    private void cargarCategoriasDesdeAPI() {
+        new Thread(() -> {
+            try {
+                URL url = new URL("http://localhost:8080/api/categorias/lista");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+
+                if (conn.getResponseCode() == 200) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    Categoria[] categorias = mapper.readValue(conn.getInputStream(), Categoria[].class);
+
+                    Platform.runLater(() -> {
+                        comboCategorias.getItems().clear();
+                        comboCategorias.getItems().addAll(categorias);
+                        if (categorias.length > 0) {
+                            comboCategorias.setValue(categorias[0]);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> mostrarAlerta("Error", "No se pudo cargar las categorías"));
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+    private TableView<TurnoDoble> createStyledTable() {
+        TableView<TurnoDoble> tabla = new TableView<>();
+        tabla.setPrefHeight(300);
+        tabla.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, 0, 2);" +
+                        "-fx-border-color: transparent;" +
+                        "-fx-font-size: 13px;"
+        );
+
+        // Estilo para el encabezado de la tabla
+        tabla.getStylesheets().add(getClass().getResource("/styles/table-styles.css").toExternalForm());
+
+        // Columnas con mejor estilo
+        TableColumn<TurnoDoble, String> colGeneral = new TableColumn<>("General");
+        colGeneral.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getGeneral()));
+        colGeneral.setPrefWidth(200);
+        colGeneral.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5px;");
+
+        TableColumn<TurnoDoble, String> colPreferencial = new TableColumn<>("Preferencial");
+        colPreferencial.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getPreferencial()));
+        colPreferencial.setPrefWidth(200);
+        colPreferencial.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5px;");
+
+        // Personalización de las celdas
+        colGeneral.setCellFactory(column -> new TableCell<TurnoDoble, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (item == null || empty) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    setStyle("-fx-background-color: #f8f9fa; -fx-padding: 8px 12px; -fx-border-radius: 4px;");
+
+                    // Si no es la última fila, agregar margen inferior
+                    if (getIndex() < getTableView().getItems().size() - 1) {
+                        setStyle(getStyle() + "-fx-border-width: 0 0 1px 0; -fx-border-color: #e9ecef;");
+                    }
+                }
+            }
+        });
+
+        colPreferencial.setCellFactory(column -> new TableCell<TurnoDoble, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (item == null || empty) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    // Color ligeramente diferente para distinguir de la columna general
+                    setStyle("-fx-background-color: #e8f4f8; -fx-padding: 8px 12px; -fx-border-radius: 4px;");
+
+                    // Si no es la última fila, agregar margen inferior
+                    if (getIndex() < getTableView().getItems().size() - 1) {
+                        setStyle(getStyle() + "-fx-border-width: 0 0 1px 0; -fx-border-color: #e9ecef;");
+                    }
+                }
+            }
+        });
+
+        tabla.getColumns().addAll(colGeneral, colPreferencial);
+
+        // Eliminar líneas de cuadrícula vertical
+       // tabla.setGridLinesVisible(false);
+
+        // Estilo para filas vacías
+        tabla.setPlaceholder(new Label("No hay turnos disponibles") {{
+            setStyle("-fx-text-fill: #6c757d; -fx-font-style: italic;");
+        }});
+
+        return tabla;
+    }
+
+
+private VBox createCurrentTurnPanel() {
+    VBox panel = new VBox(20);
+    panel.setPrefWidth(400);
+    panel.setPadding(new Insets(25));
+    panel.setAlignment(Pos.CENTER);
+    panel.setStyle(
+            "-fx-background-color: white;" +
+                    "-fx-background-radius: 15px;" +
+                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5);"
+    );
+
+    // Título del panel
+    Label titulo = new Label("🎯 TURNO ACTUAL");
+    titulo.setStyle(
+            "-fx-font-size: 18px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-text-fill: #2c3e50;"
+    );
+
+    // Contenedor del turno actual
+    VBox turnoContainer = new VBox(15);
+    turnoContainer.setAlignment(Pos.CENTER);
+    turnoContainer.setPadding(new Insets(30));
+    turnoContainer.setStyle(
+            "-fx-background-color: linear-gradient(to bottom, #3498db, #2980b9);" +
+                    "-fx-background-radius: 12px;" +
+                    "-fx-effect: dropshadow(gaussian, rgba(52,152,219,0.3), 10, 0, 0, 3);"
+    );
+
+    lblTurnoActual = new Label("---");
+    lblTurnoActual.setStyle(
+            "-fx-font-size: 48px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-text-fill: white;" +
+                    "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 3, 0, 1, 1);"
+    );
+
+    lblCategoria = new Label("Esperando...");
+    lblCategoria.setStyle(
+            "-fx-font-size: 16px;" +
+                    "-fx-text-fill: rgba(255,255,255,0.9);"
+    );
+
+    turnoContainer.getChildren().addAll(lblTurnoActual, lblCategoria);
+
+    // Estado del sistema
+    lblEstado = new Label("🟢 Sistema Activo");
+    lblEstado.setStyle(
+            "-fx-font-size: 14px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-text-fill: #27ae60;" +
+                    "-fx-padding: 10px 20px;" +
+                    "-fx-background-color: #d5f4e6;" +
+                    "-fx-background-radius: 20px;"
+    );
+
+    // Título para la tabla
+    Label tituloTabla = new Label("Próximos Turnos");
+    tituloTabla.setStyle(
+            "-fx-font-size: 15px;" +
+                    "-fx-font-weight: bold;" +
+                    "-fx-text-fill: #2c3e50;" +
+                    "-fx-padding: 10px 0 5px 0;"
+    );
+
+    // Usar la tabla estilizada
+    tablaUnificada = createStyledTable();
+
+    // Contenedor para la tabla con un poco de padding
+    VBox tablaContainer = new VBox(5);
+    tablaContainer.setPadding(new Insets(5, 0, 0, 0));
+    tablaContainer.getChildren().addAll(tituloTabla, tablaUnificada);
+
+    panel.getChildren().addAll(titulo, turnoContainer, lblEstado, tablaContainer);
+
+    return panel;
+}
+
+
+
+
+
+private void actualizarTablaUnificada() {
+    new Thread(() -> {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+
+            // General
+            URL urlGen = new URL("http://localhost:8080/api/turnos/abiertos?preferente=false");
+            Turno[] generales = mapper.readValue(urlGen, Turno[].class);
+
+            // Preferencial
+            URL urlPref = new URL("http://localhost:8080/api/turnos/abiertos?preferente=true");
+            Turno[] preferenciales = mapper.readValue(urlPref, Turno[].class);
+
+            // Unir en filas
+            ObservableList<TurnoDoble> filas = FXCollections.observableArrayList();
+            int max = Math.max(generales.length, preferenciales.length);
+            for (int i = 0; i < max; i++) {
+                String gen = (i < generales.length) ?
+                        generales[i].getId() + " - " + generales[i].getNumero() : "";
+                String pref = (i < preferenciales.length) ?
+                        preferenciales[i].getId() + " - " + preferenciales[i].getNumero() : "";
+
+                filas.add(new TurnoDoble(gen, pref));
+            }
+
+            Platform.runLater(() -> tablaUnificada.setItems(filas));
+        } catch (Exception e) {
+            Platform.runLater(() -> {
+                tablaUnificada.setPlaceholder(new Label("Error al cargar los datos"));
+            });
+            e.printStackTrace();
+        }
+    }).start();
+}
+
+
+
+
+    private VBox createStatsPanel() {
+        VBox panel = new VBox(20);
+        panel.setPrefWidth(350);
+        panel.setPadding(new Insets(25));
+        panel.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 15px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5);"
+        );
+
+        // Título del panel
+        Label titulo = new Label("📋 TURNOS DEL DÍA");
+        titulo.setStyle(
+                "-fx-font-size: 18px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: #2c3e50;"
+        );
+
+        // Separador
+        Separator separador = new Separator();
+        separador.setStyle("-fx-background-color: #ecf0f1;");
+
+        // Contenedor de estadísticas
+        statsContainer = new VBox(15);
+
+
+        panel.getChildren().addAll(titulo, separador, statsContainer);
+
+        return panel;
+    }
+
+    private VBox createStatCard(String icon, String titulo, String valor, String color) {
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(15));
+        card.setStyle(
+                "-fx-background-color: #f8f9fa;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-border-color: " + color + ";" +
+                        "-fx-border-width: 0 0 0 4px;"
+        );
+
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        Label iconLabel = new Label(icon);
+        iconLabel.setStyle("-fx-font-size: 20px;");
+
+        Label tituloLabel = new Label(titulo);
+        tituloLabel.setStyle(
+                "-fx-font-size: 12px;" +
+                        "-fx-text-fill: #7f8c8d;" +
+                        "-fx-font-weight: bold;"
+        );
+
+        header.getChildren().addAll(iconLabel, tituloLabel);
+
+        VBox content = new VBox(5);
+        Label valorLabel = new Label(valor);
+        valorLabel.setStyle(
+                "-fx-font-size: 24px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: " + color + ";"
+        );
+
+        content.getChildren().add(valorLabel);
+
+        card.getChildren().addAll(header, content);
+
+        return card;
+    }
+
+    // MÉTODO CORREGIDO PARA OBTENER EL LABEL DE VALOR
+    private Label getStatValueLabel(VBox statCard) {
+        // La estructura es: VBox -> [HBox (header), VBox (content)]
+        // En content: VBox -> [Label (valor)]
+        VBox contentContainer = (VBox) statCard.getChildren().get(1);
+        return (Label) contentContainer.getChildren().get(0);
+    }
+
+    private HBox createFooter() {
+        HBox footer = new HBox();
+        footer.setPadding(new Insets(15, 30, 15, 30));
+        footer.setAlignment(Pos.CENTER_LEFT);
+        footer.setStyle(
+                "-fx-background-color: #34495e;" +
+                        "-fx-border-color: #2c3e50;" +
+                        "-fx-border-width: 1px 0 0 0;"
+        );
+
+        Label info = new Label("💻 Sistema de Turnos v2.0 | Desarrollado por kubocode | 2025");
+        info.setStyle(
+                "-fx-font-size: 12px;" +
+                        "-fx-text-fill: #bdc3c7;"
+        );
+
+        footer.getChildren().add(info);
+
+        return footer;
+    }
+
+    private Button createStyledButton(String text, String baseColor, String hoverColor) {
+        Button button = new Button(text);
+        button.setPrefWidth(280);
+        button.setPrefHeight(45);
+        button.setStyle(
+                "-fx-background-color: " + baseColor + ";" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 14px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 8px;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 2);"
+        );
+
+        // Efectos hover
+        button.setOnMouseEntered(e -> {
+            button.setStyle(
+                    "-fx-background-color: " + hoverColor + ";" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-background-radius: 8px;" +
+                            "-fx-cursor: hand;" +
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 8, 0, 0, 3);"
+            );
+
+            ScaleTransition scale = new ScaleTransition(Duration.millis(100), button);
+            scale.setToX(1.02);
+            scale.setToY(1.02);
+            scale.play();
+        });
+
+        button.setOnMouseExited(e -> {
+            button.setStyle(
+                    "-fx-background-color: " + baseColor + ";" +
+                            "-fx-text-fill: white;" +
+                            "-fx-font-size: 14px;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-background-radius: 8px;" +
+                            "-fx-cursor: hand;" +
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 5, 0, 0, 2);"
+            );
+
+            ScaleTransition scale = new ScaleTransition(Duration.millis(100), button);
+            scale.setToX(1.0);
+            scale.setToY(1.0);
+            scale.play();
+        });
+
+        return button;
+    }
+
+    private void inicializarSistema() {
         actualizarTurnoActual();
+        actualizarEstadisticas();
+        cargarCategoriasDesdeAPI();
+
+        // Animación de entrada
+        Timeline timeline = new Timeline();
+        timeline.getKeyFrames().add(new KeyFrame(Duration.millis(500), e -> {
+            playEntryAnimation();
+        }));
+        timeline.play();
+    }
+
+    private void configurarActualizacionesAutomaticas() {
+        scheduler = Executors.newScheduledThreadPool(2);
+
+        // Actualizar turno actual cada 3 segundos
+        scheduler.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::actualizarTurnoActual);
+        }, 3, 3, TimeUnit.SECONDS);
+
+        // Actualizar hora cada segundo
+        scheduler.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::actualizarHora);
+        }, 1, 1, TimeUnit.SECONDS);
+
+        // Actualizar estadísticas cada 10 segundos
+        scheduler.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::actualizarEstadisticas);
+        }, 10, 10, TimeUnit.SECONDS);
+        //Actualizar Tablas de General y Preferencial
+        scheduler.scheduleAtFixedRate(() -> {
+            Platform.runLater(this::actualizarTablaUnificada);
+        }, 5, 5, TimeUnit.SECONDS);
+
+    }
+
+    private void actualizarHora() {
+        LocalDateTime now = LocalDateTime.now();
+        String horaFormateada = now.format(DateTimeFormatter.ofPattern("HH:mm:ss | dd/MM/yyyy"));
+        lblHora.setText("🕐 " + horaFormateada);
     }
 
     private void actualizarTurnoActual() {
+        if (sistemaPausado) return;
+
         try {
-            URL url = new URL("http://localhost:8080/api/turnos/actual");
+            //URL url = new URL("http://localhost:8080/api/turnos/actual");
+            URL url = new URL("http://localhost:8080/api/turnos/ultimo");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
 
             if (conn.getResponseCode() == 200) {
                 InputStream input = conn.getInputStream();
                 ObjectMapper mapper = new ObjectMapper();
                 Turno turno = mapper.readValue(input, Turno.class);
 
-                lblTurno.setText("Turno actual: " + turno.getNumero());
-                lblCategoria.setText("Categoría: " + turno.getCategoria());
+                Platform.runLater(() -> {
+                    lblTurnoActual.setText(String.valueOf(turno.getNumero()));
+                    //lblCategoria.setText("Categoría: " + turno.getCategoria());
+                    Categoria cat = turno.getCategoria();
+                    String nombreCat = (cat != null) ? cat.getNombre() : "-";
+                    lblCategoria.setText("Categoría: " + nombreCat);
+                    // Animación de actualización
+                    playUpdateAnimation(lblTurnoActual);
+                });
             } else {
-                lblTurno.setText("Sin turnos disponibles");
-                lblCategoria.setText("");
+                Platform.runLater(() -> {
+                    lblTurnoActual.setText("---");
+                    lblCategoria.setText("Sin turnos disponibles");
+                });
             }
         } catch (Exception e) {
-            lblTurno.setText("Error de conexión");
-            lblCategoria.setText("");
+            Platform.runLater(() -> {
+                lblTurnoActual.setText("ERROR");
+                lblCategoria.setText("Error de conexión");
+            });
         }
     }
 
-    private void avanzarTurno() {
-        try {
-            URL url = new URL("http://localhost:8080/api/turnos/next");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("PUT");
+    private void llamarSiguienteTurno() {
+        if (sistemaPausado) {
+            mostrarAlerta("Sistema Pausado", "El sistema está pausado. Active el sistema para continuar.");
+            return;
+        }
 
-            if (conn.getResponseCode() == 200) {
-                actualizarTurnoActual(); // muestra el nuevo actual
-            } else {
-                lblTurno.setText("No hay más turnos");
-                lblCategoria.setText("");
-            }
-        } catch (Exception e) {
-            lblTurno.setText("Error al avanzar");
-            lblCategoria.setText("");
+        showLoading(true);
+
+        Timeline delay = new Timeline(new KeyFrame(Duration.millis(800), e -> {
+            avanzarTurno(comboPuestos.getValue());
+            showLoading(false);
+        }));
+        delay.play();
+    }
+
+
+private void avanzarTurno(int puestoSeleccionado) {
+    try {
+        // Recolectar los datos necesarios
+        int usuarioId = UsuarioLogeado.obtenerUsuario().getId();
+        Categoria categoriaSeleccionada = comboCategorias.getValue();
+        boolean preferente = comboTipo.getValue().equals("Preferencial");
+
+        if (categoriaSeleccionada == null) {
+            mostrarAlerta("Error", "Debe seleccionar una categoría.");
+            return;
+        }
+
+        // Construir el JSON
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> jsonMap = new HashMap<>();
+        jsonMap.put("categoriaId", categoriaSeleccionada.getId());
+        jsonMap.put("preferente", preferente);
+        jsonMap.put("usuarioId", usuarioId);
+        jsonMap.put("puesto", puestoSeleccionado);
+
+
+
+        // Establecer conexión
+        URL url = new URL("http://localhost:8080/api/turnos/cerrar");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+
+        // Enviar el JSON
+        mapper.writeValue(conn.getOutputStream(), jsonMap);
+
+        // Manejar la respuesta
+        if (conn.getResponseCode() == 200) {
+            Platform.runLater(() -> {
+                actualizarTurnoActual();
+                actualizarEstadisticas();
+                actualizarTablaUnificada();
+                playSuccessAnimation();
+            });
+        } else {
+            Platform.runLater(() -> {
+                mostrarAlerta("Sin Turnos", "No hay más turnos disponibles para procesar.");
+                lblTurnoActual.setText("---");
+                lblCategoria.setText("Sin turnos disponibles");
+            });
+        }
+    } catch (Exception e) {
+        Platform.runLater(() -> {
+            lblTurnoActual.setText("ERROR");
+            lblCategoria.setText("Error al cerrar turno");
+            mostrarAlerta("Error", "Error de conexión al servidor: " + e.getMessage());
+        });
+        e.printStackTrace();
+    }
+}
+
+
+    private void togglePausarSistema() {
+        sistemaPausado = !sistemaPausado;
+
+        if (sistemaPausado) {
+            btnPausarSistema.setText("▶️ REANUDAR SISTEMA");
+            lblEstado.setText("🔴 Sistema Pausado");
+            lblEstado.setStyle(
+                    "-fx-font-size: 14px;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-text-fill: #c0392b;" +
+                            "-fx-padding: 10px 20px;" +
+                            "-fx-background-color: #fadbd8;" +
+                            "-fx-background-radius: 20px;"
+            );
+            btnLlamarTurno.setDisable(true);
+        } else {
+            btnPausarSistema.setText("⏸️ PAUSAR SISTEMA");
+            lblEstado.setText("🟢 Sistema Activo");
+            lblEstado.setStyle(
+                    "-fx-font-size: 14px;" +
+                            "-fx-font-weight: bold;" +
+                            "-fx-text-fill: #27ae60;" +
+                            "-fx-padding: 10px 20px;" +
+                            "-fx-background-color: #d5f4e6;" +
+                            "-fx-background-radius: 20px;"
+            );
+            btnLlamarTurno.setDisable(false);
+        }
+
+        playStateChangeAnimation();
+    }
+
+    private void reiniciarTurnos() {
+        Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmacion.setTitle("Confirmar Reinicio");
+        confirmacion.setHeaderText("¿Está seguro de reiniciar todos los turnos?");
+        confirmacion.setContentText("Esta acción no se puede deshacer.");
+
+        if (confirmacion.showAndWait().get() == ButtonType.OK) {
+            // Aquí iría la lógica para reiniciar turnos en el servidor
+            actualizarEstadisticas();
+            actualizarTurnoActual();
+
+            mostrarAlerta("Reinicio Completo", "Los turnos han sido reiniciados exitosamente.");
+        }
+    }
+
+private void actualizarEstadisticas() {
+    try {
+        URL url = new URL("http://localhost:8080/api/turnos/conteo");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+
+        if (conn.getResponseCode() == 200) {
+            InputStream input = conn.getInputStream();
+            ObjectMapper mapper = new ObjectMapper();
+
+            // Parsear el JSON como Map<String, Integer>
+            Map<String, Integer> conteoPorCategoria = mapper.readValue(input, Map.class);
+
+            Platform.runLater(() -> {
+                statsContainer.getChildren().clear(); // Limpiar anteriores
+
+                for (Map.Entry<String, Integer> entry : conteoPorCategoria.entrySet()) {
+                    String categoria = entry.getKey();
+                    String cantidad = String.valueOf(entry.getValue());
+
+                    // Ícono y color fijos
+                    String icono = "\uD83D\uDCD1";
+                    String color = "#6e0dc9";
+
+                    VBox stat = createStatCard(icono, categoria, cantidad, color);
+                    statsContainer.getChildren().add(stat);
+                }
+
+                playStatsUpdateAnimation();
+            });
+
+        } else {
+            Platform.runLater(() -> {
+                statsContainer.getChildren().clear();
+                statsContainer.getChildren().add(new Label("Error al cargar estadísticas."));
+            });
+        }
+    } catch (Exception e) {
+        Platform.runLater(() -> {
+            statsContainer.getChildren().clear();
+            statsContainer.getChildren().add(new Label("Error de conexión al servidor."));
+        });
+    }
+}
+
+
+
+    private void showLoading(boolean show) {
+        loadingIndicator.setVisible(show);
+        btnLlamarTurno.setDisable(show);
+    }
+
+    private void mostrarAlerta(String titulo, String mensaje) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(titulo);
+        alert.setHeaderText(null);
+        alert.setContentText(mensaje);
+        alert.showAndWait();
+    }
+
+    // Animaciones
+    private void playEntryAnimation() {
+        FadeTransition fade = new FadeTransition(Duration.millis(1000), primaryStage.getScene().getRoot());
+        fade.setFromValue(0.0);
+        fade.setToValue(1.0);
+        fade.play();
+    }
+
+    private void playUpdateAnimation(Label label) {
+        ScaleTransition scale = new ScaleTransition(Duration.millis(200), label);
+        scale.setToX(1.1);
+        scale.setToY(1.1);
+        scale.setAutoReverse(true);
+        scale.setCycleCount(2);
+        scale.play();
+    }
+
+    private void playSuccessAnimation() {
+        // Animación de pulso verde en el turno actual
+        Timeline pulse = new Timeline();
+        pulse.getKeyFrames().addAll(
+                new KeyFrame(Duration.ZERO, new KeyValue(lblTurnoActual.scaleXProperty(), 1.0)),
+                new KeyFrame(Duration.millis(150), new KeyValue(lblTurnoActual.scaleXProperty(), 1.15)),
+                new KeyFrame(Duration.millis(300), new KeyValue(lblTurnoActual.scaleXProperty(), 1.0))
+        );
+        pulse.play();
+    }
+
+    private void playStateChangeAnimation() {
+        RotateTransition rotate = new RotateTransition(Duration.millis(300), lblEstado);
+        rotate.setByAngle(360);
+        rotate.play();
+    }
+
+    private void playStatsUpdateAnimation() {
+        for (javafx.scene.Node node : statsContainer.getChildren()) {
+            FadeTransition fade = new FadeTransition(Duration.millis(300), node);
+            fade.setFromValue(0.7);
+            fade.setToValue(1.0);
+            fade.play();
+        }
+    }
+
+    @Override
+    public void stop() {
+        if (scheduler != null) {
+            scheduler.shutdown();
         }
     }
 
     public static void main(String[] args) {
-        launch();
+        launch(args);
     }
 }
