@@ -291,7 +291,7 @@ public class PanelAdmin extends Application {
     private void cargarCategoriasDesdeAPI() {
         new Thread(() -> {
             try {
-                URL url = new URL("http://localhost:8080/api/categorias/lista");
+                URL url = new URL("http://192.168.0.102:8080/api/categorias/lista");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
@@ -486,11 +486,11 @@ private void actualizarTablaUnificada() {
             ObjectMapper mapper = new ObjectMapper();
 
             // General
-            URL urlGen = new URL("http://localhost:8080/api/turnos/abiertos?preferente=false");
+            URL urlGen = new URL("http://192.168.0.102:8080/api/turnos/abiertos?preferente=false");
             Turno[] generales = mapper.readValue(urlGen, Turno[].class);
 
             // Preferencial
-            URL urlPref = new URL("http://localhost:8080/api/turnos/abiertos?preferente=true");
+            URL urlPref = new URL("http://192.168.0.102:8080/api/turnos/abiertos?preferente=true");
             Turno[] preferenciales = mapper.readValue(urlPref, Turno[].class);
 
             // Unir en filas
@@ -717,8 +717,7 @@ private void actualizarTablaUnificada() {
         if (sistemaPausado) return;
 
         try {
-            //URL url = new URL("http://localhost:8080/api/turnos/actual");
-            URL url = new URL("http://localhost:8080/api/turnos/ultimo");
+            URL url = new URL("http://192.168.0.102:8080/api/turnos/ultimo");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(5000);
@@ -791,7 +790,7 @@ private void avanzarTurno(int puestoSeleccionado) {
 
 
         // Establecer conexión
-        URL url = new URL("http://localhost:8080/api/turnos/cerrar");
+        URL url = new URL("http://192.168.0.102:8080/api/turnos/cerrar");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
@@ -877,7 +876,7 @@ private void avanzarTurno(int puestoSeleccionado) {
 
 private void actualizarEstadisticas() {
     try {
-        URL url = new URL("http://localhost:8080/api/turnos/conteo");
+        URL url = new URL("http://192.168.0.102:8080/api/turnos/conteo");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setConnectTimeout(5000);

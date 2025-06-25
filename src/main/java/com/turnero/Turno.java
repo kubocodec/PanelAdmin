@@ -22,17 +22,4 @@ public class Turno {
         return categoria;
     }
 
-    // Clase interna correctamente definida
-//    public static class Categoria {
-//        private int id;
-//        private String nombre;
-//
-//        public int getId() {
-//            return id;
-//        }
-//
-//        public String getNombre() {
-//            return nombre;
-//        }
-//    }
 }
