@@ -531,7 +531,7 @@ public class LoginView extends Application {
                     // Crear JSON de login
                     String json = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", user, pass);
 
-                    URL url = new URL("http://192.168.0.102:8080/api/auth/login");
+                    URL url = new URL("http://192.168.0.104:8080/api/auth/login");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
