@@ -39,6 +39,11 @@ public class LoginView extends Application {
 
     @Override
     public void start(Stage stage) {
+        if (ConfigManager.getIp() == null) {
+            ConfigWindow cw = new ConfigWindow();
+            cw.start(new Stage());
+            return;
+        }
         this.primaryStage = stage;
 
         // Configurar ventana sin decoraciones
@@ -531,7 +536,7 @@ public class LoginView extends Application {
                     // Crear JSON de login
                     String json = String.format("{\"username\":\"%s\", \"password\":\"%s\"}", user, pass);
 
-                    URL url = new URL("http://192.168.0.104:8080/api/auth/login");
+                    URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/auth/login");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
@@ -681,6 +686,10 @@ public class LoginView extends Application {
     }
 
     public static void main(String[] args) {
-        launch(args);
+        if (ConfigManager.getIp() == null) {
+            Application.launch(ConfigWindow.class, args);
+        } else {
+            launch(args);
+        }
     }
 }
