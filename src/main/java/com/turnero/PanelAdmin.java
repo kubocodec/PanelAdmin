@@ -72,18 +72,31 @@ public class PanelAdmin extends Application {
 
         // Configurar la ventana
         stage.setTitle("Sistema de Administración de Turnos - Panel de Control");
-        stage.setMinWidth(1200);
-        stage.setMinHeight(800);
+        stage.setMinWidth(900);
+        stage.setMinHeight(600);
 
         // Crear el layout principal
         BorderPane root = createMainLayout();
 
+        // Obtener tamaño de pantalla y usar el 85%
+        javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getVisualBounds();
+        double width = Math.max(900, screenBounds.getWidth() * 0.85);
+        double height = Math.max(600, screenBounds.getHeight() * 0.85);
+
         // Crear la escena
-        Scene scene = new Scene(root, 1200, 800);
+        Scene scene = new Scene(root, width, height);
         scene.setFill(Color.web("#f8f9fa"));
 
         stage.setScene(scene);
         stage.centerOnScreen();
+
+        // Doble clic para pantalla completa
+        scene.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                stage.setFullScreen(!stage.isFullScreen());
+            }
+        });
+
         stage.show();
 
         // Inicializar datos y animaciones
@@ -156,18 +169,21 @@ public class PanelAdmin extends Application {
     }
 
     private HBox createMainContent() {
-        HBox mainContent = new HBox(30);
-        mainContent.setPadding(new Insets(30));
+        HBox mainContent = new HBox(20);
+        mainContent.setPadding(new Insets(20));
         mainContent.setAlignment(Pos.TOP_CENTER);
 
         // Panel izquierdo - Control de turnos
         VBox leftPanel = createControlPanel();
+        HBox.setHgrow(leftPanel, Priority.ALWAYS);
 
         // Panel central - Información actual
         VBox centerPanel = createCurrentTurnPanel();
+        HBox.setHgrow(centerPanel, Priority.ALWAYS);
 
         // Panel derecho - Estadísticas
         VBox rightPanel = createStatsPanel();
+        HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         mainContent.getChildren().addAll(leftPanel, centerPanel, rightPanel);
 
@@ -176,7 +192,7 @@ public class PanelAdmin extends Application {
 
     private VBox createControlPanel() {
         VBox panel = new VBox(20);
-        panel.setPrefWidth(350);
+        panel.setMinWidth(250);
         panel.setPadding(new Insets(25));
         panel.setStyle(
                 "-fx-background-color: white;" +
@@ -208,7 +224,7 @@ public class PanelAdmin extends Application {
         comboPuestos = new ComboBox<>();
         comboPuestos.getItems().addAll(1, 2, 3, 4, 5);
         comboPuestos.setValue(1);
-        comboPuestos.setPrefWidth(280);
+        comboPuestos.setMaxWidth(Double.MAX_VALUE);
         comboPuestos.setPrefHeight(40);
         comboPuestos.setStyle(
                 "-fx-background-color: #f8f9fa;" +
@@ -231,7 +247,7 @@ public class PanelAdmin extends Application {
         );
 
         comboCategorias = new ComboBox<>();
-        comboCategorias.setPrefWidth(280);
+        comboCategorias.setMaxWidth(Double.MAX_VALUE);
         comboCategorias.setPrefHeight(40);
         comboCategorias.setStyle(
                 "-fx-background-color: #f8f9fa;" +
@@ -256,7 +272,7 @@ public class PanelAdmin extends Application {
         comboTipo = new ComboBox<>();
         comboTipo.getItems().addAll("General", "Preferencial");
         comboTipo.setValue("General");
-        comboTipo.setPrefWidth(280);
+        comboTipo.setMaxWidth(Double.MAX_VALUE);
         comboTipo.setPrefHeight(40);
         comboTipo.setStyle(
                 "-fx-background-color: #f8f9fa;" +
@@ -345,13 +361,15 @@ public class PanelAdmin extends Application {
         // Columnas con mejor estilo
         TableColumn<TurnoDoble, String> colGeneral = new TableColumn<>("General");
         colGeneral.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getGeneral()));
-        colGeneral.setPrefWidth(200);
         colGeneral.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5px;");
 
         TableColumn<TurnoDoble, String> colPreferencial = new TableColumn<>("Preferencial");
         colPreferencial.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getPreferencial()));
-        colPreferencial.setPrefWidth(200);
         colPreferencial.setStyle("-fx-alignment: CENTER-LEFT; -fx-padding: 5px;");
+
+        // Hacer que las columnas se repartan el ancho disponible
+        colGeneral.prefWidthProperty().bind(tabla.widthProperty().multiply(0.48));
+        colPreferencial.prefWidthProperty().bind(tabla.widthProperty().multiply(0.48));
 
         // Personalización de las celdas
         colGeneral.setCellFactory(column -> new TableCell<TurnoDoble, String>() {
@@ -411,7 +429,7 @@ public class PanelAdmin extends Application {
 
 private VBox createCurrentTurnPanel() {
     VBox panel = new VBox(20);
-    panel.setPrefWidth(400);
+    panel.setMinWidth(280);
     panel.setPadding(new Insets(25));
     panel.setAlignment(Pos.CENTER);
     panel.setStyle(
@@ -481,6 +499,8 @@ private VBox createCurrentTurnPanel() {
     VBox tablaContainer = new VBox(5);
     tablaContainer.setPadding(new Insets(5, 0, 0, 0));
     tablaContainer.getChildren().addAll(tituloTabla, tablaUnificada);
+    VBox.setVgrow(tablaContainer, Priority.ALWAYS);
+    VBox.setVgrow(tablaUnificada, Priority.ALWAYS);
 
     panel.getChildren().addAll(titulo, turnoContainer, lblEstado, tablaContainer);
 
@@ -531,7 +551,7 @@ private void actualizarTablaUnificada() {
 
     private VBox createStatsPanel() {
         VBox panel = new VBox(20);
-        panel.setPrefWidth(350);
+        panel.setMinWidth(250);
         panel.setPadding(new Insets(25));
         panel.setStyle(
                 "-fx-background-color: white;" +
@@ -631,7 +651,7 @@ private void actualizarTablaUnificada() {
 
     private Button createStyledButton(String text, String baseColor, String hoverColor) {
         Button button = new Button(text);
-        button.setPrefWidth(280);
+        button.setMaxWidth(Double.MAX_VALUE);
         button.setPrefHeight(45);
         button.setStyle(
                 "-fx-background-color: " + baseColor + ";" +
@@ -727,39 +747,48 @@ private void actualizarTablaUnificada() {
     private void actualizarTurnoActual() {
         if (sistemaPausado) return;
 
-        try {
-            URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/ultimo");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/ultimo");
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setUseCaches(false);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
 
-            if (conn.getResponseCode() == 200) {
-                InputStream input = conn.getInputStream();
-                ObjectMapper mapper = new ObjectMapper();
-                Turno turno = mapper.readValue(input, Turno.class);
+                if (conn.getResponseCode() == 200) {
+                    InputStream input = conn.getInputStream();
+                    ObjectMapper mapper = new ObjectMapper();
+                    Turno turno = mapper.readValue(input, Turno.class);
 
-                Platform.runLater(() -> {
-                    lblTurnoActual.setText(String.valueOf(turno.getNumero()));
-                    //lblCategoria.setText("Categoría: " + turno.getCategoria());
-                    Categoria cat = turno.getCategoria();
-                    String nombreCat = (cat != null) ? cat.getNombre() : "-";
-                    lblCategoria.setText("Categoría: " + nombreCat);
-                    // Animación de actualización
-                    playUpdateAnimation(lblTurnoActual);
-                });
-            } else {
+                    Platform.runLater(() -> {
+                        lblTurnoActual.setText(String.valueOf(turno.getNumero()));
+                        Categoria cat = turno.getCategoria();
+                        String nombreCat = (cat != null) ? cat.getNombre() : "-";
+                        lblCategoria.setText("Categoría: " + nombreCat);
+                        playUpdateAnimation(lblTurnoActual);
+                    });
+                } else {
+                    Platform.runLater(() -> {
+                        lblTurnoActual.setText("---");
+                        lblCategoria.setText("Sin turnos llamados");
+                    });
+                }
+            } catch (java.net.ConnectException | java.net.SocketTimeoutException e) {
                 Platform.runLater(() -> {
                     lblTurnoActual.setText("---");
-                    lblCategoria.setText("Sin turnos disponibles");
+                    lblCategoria.setText("Servidor no disponible");
                 });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    lblTurnoActual.setText("---");
+                    lblCategoria.setText("Sin turnos llamados");
+                });
+            } finally {
+                if (conn != null) conn.disconnect();
             }
-        } catch (Exception e) {
-            Platform.runLater(() -> {
-                lblTurnoActual.setText("ERROR");
-                lblCategoria.setText("Error de conexión");
-            });
-        }
+        }).start();
     }
 
     private void llamarSiguienteTurno() {
@@ -779,62 +808,66 @@ private void actualizarTablaUnificada() {
 
 
 private void avanzarTurno(int puestoSeleccionado) {
-    try {
-        // Recolectar los datos necesarios
-        int usuarioId = UsuarioLogeado.obtenerUsuario().getId();
-        Categoria categoriaSeleccionada = comboCategorias.getValue();
-        boolean preferente = comboTipo.getValue().equals("Preferencial");
+    // Recolectar los datos en el hilo de FX antes de lanzar el hilo de red
+    int usuarioId = UsuarioLogeado.obtenerUsuario().getId();
+    Categoria categoriaSeleccionada = comboCategorias.getValue();
+    boolean preferente = comboTipo.getValue().equals("Preferencial");
 
-        if (categoriaSeleccionada == null) {
-            mostrarAlerta("Error", "Debe seleccionar una categoría.");
-            return;
-        }
-
-        // Construir el JSON
-        ObjectMapper mapper = new ObjectMapper();
-        Map<String, Object> jsonMap = new HashMap<>();
-        jsonMap.put("categoriaId", categoriaSeleccionada.getId());
-        jsonMap.put("preferente", preferente);
-        jsonMap.put("usuarioId", usuarioId);
-        jsonMap.put("puesto", puestoSeleccionado);
-
-
-
-        // Establecer conexión
-        URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/cerrar");
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setDoOutput(true);
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(5000);
-
-        // Enviar el JSON
-        mapper.writeValue(conn.getOutputStream(), jsonMap);
-
-        // Manejar la respuesta
-        if (conn.getResponseCode() == 200) {
-            Platform.runLater(() -> {
-                actualizarTurnoActual();
-                actualizarEstadisticas();
-                actualizarTablaUnificada();
-                playSuccessAnimation();
-            });
-        } else {
-            Platform.runLater(() -> {
-                mostrarAlerta("Sin Turnos", "No hay más turnos disponibles para procesar.");
-                lblTurnoActual.setText("---");
-                lblCategoria.setText("Sin turnos disponibles");
-            });
-        }
-    } catch (Exception e) {
-        Platform.runLater(() -> {
-            lblTurnoActual.setText("ERROR");
-            lblCategoria.setText("Error al cerrar turno");
-            mostrarAlerta("Error", "Error de conexión al servidor: " + e.getMessage());
-        });
-        e.printStackTrace();
+    if (categoriaSeleccionada == null) {
+        mostrarAlerta("Error", "Debe seleccionar una categoría.");
+        return;
     }
+
+    new Thread(() -> {
+        HttpURLConnection conn = null;
+        try {
+            // Construir el JSON
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> jsonMap = new HashMap<>();
+            jsonMap.put("categoriaId", categoriaSeleccionada.getId());
+            jsonMap.put("preferente", preferente);
+            jsonMap.put("usuarioId", usuarioId);
+            jsonMap.put("puesto", puestoSeleccionado);
+
+            // Establecer conexión
+            URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/cerrar");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setUseCaches(false);
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+
+            // Enviar el JSON
+            mapper.writeValue(conn.getOutputStream(), jsonMap);
+
+            // Manejar la respuesta
+            if (conn.getResponseCode() == 200) {
+                Platform.runLater(() -> {
+                    actualizarTurnoActual();
+                    actualizarEstadisticas();
+                    actualizarTablaUnificada();
+                    playSuccessAnimation();
+                });
+            } else {
+                Platform.runLater(() -> {
+                    mostrarAlerta("Sin Turnos", "No hay más turnos disponibles para procesar.");
+                    lblTurnoActual.setText("---");
+                    lblCategoria.setText("Sin turnos disponibles");
+                });
+            }
+        } catch (Exception e) {
+            Platform.runLater(() -> {
+                lblTurnoActual.setText("---");
+                lblCategoria.setText("Error al cerrar turno");
+                mostrarAlerta("Error", "Error de conexión al servidor: " + e.getMessage());
+            });
+            e.printStackTrace();
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }).start();
 }
 
 
@@ -874,14 +907,37 @@ private void avanzarTurno(int puestoSeleccionado) {
         Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
         confirmacion.setTitle("Confirmar Reinicio");
         confirmacion.setHeaderText("¿Está seguro de reiniciar todos los turnos?");
-        confirmacion.setContentText("Esta acción no se puede deshacer.");
+        confirmacion.setContentText("Esta acción implica que todos los contadores de turnos volverán a cero para iniciar una nueva jornada. Esta acción no se puede deshacer.");
 
         if (confirmacion.showAndWait().get() == ButtonType.OK) {
-            // Aquí iría la lógica para reiniciar turnos en el servidor
-            actualizarEstadisticas();
-            actualizarTurnoActual();
+            new Thread(() -> {
+                try {
+                    URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/reiniciar");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setConnectTimeout(5000);
+                    conn.setReadTimeout(5000);
 
-            mostrarAlerta("Reinicio Completo", "Los turnos han sido reiniciados exitosamente.");
+                    if (conn.getResponseCode() == 200 || conn.getResponseCode() == 204) {
+                        Platform.runLater(() -> {
+                            actualizarEstadisticas();
+                            actualizarTurnoActual();
+                            actualizarTablaUnificada();
+                            mostrarAlerta("Reinicio Completo", "Los turnos han sido reiniciados exitosamente a cero.");
+                        });
+                    } else {
+                        int code = conn.getResponseCode();
+                        Platform.runLater(() -> {
+                            mostrarAlerta("Error al Reiniciar", "El servidor respondió con código: " + code);
+                        });
+                    }
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        mostrarAlerta("Error de Conexión", "No se pudo conectar al servidor: " + e.getMessage());
+                    });
+                    e.printStackTrace();
+                }
+            }).start();
         }
     }
 
