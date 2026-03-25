@@ -48,6 +48,7 @@ public class PanelAdmin extends Application {
 
     // Variables de estado
     private boolean sistemaPausado = false;
+    private Long idTurnoActual = null;
     private ScheduledExecutorService scheduler;
     private TableView<TurnoDoble> tablaUnificada;
 
@@ -293,6 +294,10 @@ public class PanelAdmin extends Application {
         btnLlamarTurno = createStyledButton("📢 LLAMAR SIGUIENTE TURNO", "#27ae60", "#2ecc71");
         btnLlamarTurno.setOnAction(e -> llamarSiguienteTurno());
 
+        // Botón re-llamar turno
+        Button btnReLlamarTurno = createStyledButton("🔔 RE-LLAMAR TURNO", "#8e44ad", "#9b59b6");
+        btnReLlamarTurno.setOnAction(e -> reLlamarTurnoActual());
+
         // Botón pausar sistema
         btnPausarSistema = createStyledButton("⏸️ PAUSAR SISTEMA", "#e67e22", "#f39c12");
         btnPausarSistema.setOnAction(e -> togglePausarSistema());
@@ -301,7 +306,7 @@ public class PanelAdmin extends Application {
         btnReiniciarTurnos = createStyledButton("🔄 REINICIAR TURNOS", "#c0392b", "#e74c3c");
         btnReiniciarTurnos.setOnAction(e -> reiniciarTurnos());
 
-        botonesContainer.getChildren().addAll(btnLlamarTurno, btnPausarSistema, btnReiniciarTurnos);
+        botonesContainer.getChildren().addAll(btnLlamarTurno, btnReLlamarTurno, btnPausarSistema, btnReiniciarTurnos);
 
         // Indicador de carga
         loadingIndicator = new ProgressIndicator();
@@ -763,6 +768,7 @@ private void actualizarTablaUnificada() {
                     Turno turno = mapper.readValue(input, Turno.class);
 
                     Platform.runLater(() -> {
+                        idTurnoActual = turno.getId();
                         lblTurnoActual.setText(String.valueOf(turno.getNumero()));
                         Categoria cat = turno.getCategoria();
                         String nombreCat = (cat != null) ? cat.getNombre() : "-";
@@ -806,6 +812,39 @@ private void actualizarTablaUnificada() {
         delay.play();
     }
 
+    private void reLlamarTurnoActual() {
+        if (sistemaPausado) {
+            mostrarAlerta("Sistema Pausado", "El sistema está pausado. Active el sistema para continuar.");
+            return;
+        }
+        if (idTurnoActual == null) {
+            mostrarAlerta("Sin turno", "No hay ningún turno actual para re-llamar.");
+            return;
+        }
+
+        final Long idParaRellamar = idTurnoActual;
+
+        new Thread(() -> {
+            try {
+                URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/turnos/" + idParaRellamar + "/rellamar");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+
+                final int responseCode = conn.getResponseCode();
+                conn.disconnect();
+
+                if (responseCode == 200) {
+                    Platform.runLater(this::playSuccessAnimation);
+                } else {
+                    Platform.runLater(() -> mostrarAlerta("Error", "No se pudo re-llamar al turno. Código: " + responseCode));
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> mostrarAlerta("Error", "Error de conexión al servidor: " + e.getMessage()));
+            }
+        }).start();
+    }
 
 private void avanzarTurno(int puestoSeleccionado) {
     // Recolectar los datos en el hilo de FX antes de lanzar el hilo de red
@@ -954,7 +993,7 @@ private void actualizarEstadisticas() {
             ObjectMapper mapper = new ObjectMapper();
 
             // Parsear el JSON como Map<String, Integer>
-            Map<String, Integer> conteoPorCategoria = mapper.readValue(input, Map.class);
+            Map<String, Integer> conteoPorCategoria = mapper.readValue(input, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Integer>>() {});
 
             Platform.runLater(() -> {
                 statsContainer.getChildren().clear(); // Limpiar anteriores

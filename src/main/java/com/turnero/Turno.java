@@ -5,12 +5,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 
 public class Turno {
-    private int id;
+    private Long id;
     private String numero;
     private Categoria categoria;
 
     // Getters obligatorios
-    public int getId() {
+    public Long getId() {
         return id;
     }
 
