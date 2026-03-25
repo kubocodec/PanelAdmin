@@ -69,39 +69,53 @@ public class PanelAdmin extends Application {
         }
         this.primaryStage = stage;
 
-        // Configurar la ventana
+        String rol = UsuarioLogeado.obtenerUsuario().getRol();
+        boolean esAdmin = "ADMIN".equalsIgnoreCase(rol);
+
         stage.setTitle("Sistema de Administración de Turnos - Panel de Control");
         stage.setMinWidth(900);
         stage.setMinHeight(600);
 
-        // Crear el layout principal
-        BorderPane root = createMainLayout();
-
-        // Obtener tamaño de pantalla y usar el 85%
         javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getVisualBounds();
-        double width = Math.max(900, screenBounds.getWidth() * 0.85);
+        double width  = Math.max(900, screenBounds.getWidth() * 0.85);
         double height = Math.max(600, screenBounds.getHeight() * 0.85);
 
-        // Crear la escena
-        Scene scene = new Scene(root, width, height);
+        javafx.scene.Node contenido;
+
+        if (esAdmin) {
+            // ADMIN: TabPane con 4 pestañas
+            TabPane tabPane = new TabPane();
+            tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+            tabPane.setStyle("-fx-tab-min-height: 40px; -fx-font-size: 14px;");
+
+            Tab tabTurnos = new Tab("📋  Turnos",    createMainLayout());
+            Tab tabUsers  = new Tab("👥  Usuarios",  new ScrollPane(new VistaUsuarios().construir()));
+            Tab tabCats   = new Tab("📂  Categorías", new ScrollPane(new VistaCategorias().construir()));
+            Tab tabCarr   = new Tab("🖼️  Carrusel",  new ScrollPane(new VistaCarrusel().construir()));
+
+            tabTurnos.setStyle("-fx-background-color: #27ae60;");
+
+            tabPane.getTabs().addAll(tabTurnos, tabUsers, tabCats, tabCarr);
+            contenido = tabPane;
+        } else {
+            // USER: solo vista de turnos
+            contenido = createMainLayout();
+        }
+
+        Scene scene = new Scene((javafx.scene.Parent) contenido, width, height);
         scene.setFill(Color.web("#f8f9fa"));
 
-        stage.setScene(scene);
-        stage.centerOnScreen();
-
-        // Doble clic para pantalla completa
         scene.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 stage.setFullScreen(!stage.isFullScreen());
             }
         });
 
+        stage.setScene(scene);
+        stage.centerOnScreen();
         stage.show();
 
-        // Inicializar datos y animaciones
         inicializarSistema();
-
-        // Configurar actualizaciones automáticas
         configurarActualizacionesAutomaticas();
     }
 
@@ -132,7 +146,10 @@ public class PanelAdmin extends Application {
                         "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 2);"
         );
 
-        // Título principal
+        // Fila superior: título + botón cerrar sesión
+        HBox topRow = new HBox();
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
         Label titulo = new Label("🏢 SISTEMA DE ADMINISTRACIÓN DE TURNOS");
         titulo.setStyle(
                 "-fx-font-size: 28px;" +
@@ -141,7 +158,51 @@ public class PanelAdmin extends Application {
                         "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 2, 0, 1, 1);"
         );
 
-        // Subtítulo con hora
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        // Info del usuario logueado
+        Usuario u = UsuarioLogeado.obtenerUsuario();
+        String nombreUsuario = u != null ? u.getNombre() + " (" + u.getRol() + ")" : "";
+        Label lblUsuario = new Label("👤 " + nombreUsuario);
+        lblUsuario.setStyle("-fx-text-fill: rgba(255,255,255,0.9); -fx-font-size: 13px;");
+
+        Button btnLogout = new Button("🚪 Cerrar sesión");
+        btnLogout.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.2);" +
+                "-fx-text-fill: white;" +
+                "-fx-background-radius: 8;" +
+                "-fx-font-size: 13px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-color: rgba(255,255,255,0.5);" +
+                "-fx-border-radius: 8;"
+        );
+        btnLogout.setOnMouseEntered(e -> btnLogout.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.35);" +
+                "-fx-text-fill: white;" +
+                "-fx-background-radius: 8;" +
+                "-fx-font-size: 13px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-color: white;" +
+                "-fx-border-radius: 8;"
+        ));
+        btnLogout.setOnMouseExited(e -> btnLogout.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.2);" +
+                "-fx-text-fill: white;" +
+                "-fx-background-radius: 8;" +
+                "-fx-font-size: 13px;" +
+                "-fx-cursor: hand;" +
+                "-fx-border-color: rgba(255,255,255,0.5);" +
+                "-fx-border-radius: 8;"
+        ));
+        btnLogout.setOnAction(e -> cerrarSesion());
+
+        HBox userBox = new HBox(12, lblUsuario, btnLogout);
+        userBox.setAlignment(Pos.CENTER_RIGHT);
+
+        topRow.getChildren().addAll(titulo, spacer, userBox);
+
+        // Fila inferior: subtítulo + hora
         HBox subtituloContainer = new HBox();
         subtituloContainer.setAlignment(Pos.CENTER_LEFT);
         subtituloContainer.setSpacing(20);
@@ -163,9 +224,23 @@ public class PanelAdmin extends Application {
         subtituloContainer.getChildren().addAll(subtitulo, new Region(), lblHora);
         HBox.setHgrow(subtituloContainer.getChildren().get(1), Priority.ALWAYS);
 
-        header.getChildren().addAll(titulo, subtituloContainer);
+        header.getChildren().addAll(topRow, subtituloContainer);
         return header;
     }
+
+    private void cerrarSesion() {
+        if (scheduler != null) scheduler.shutdown();
+        UsuarioLogeado.cerrarSesion();
+        Stage currentStage = primaryStage;
+        try {
+            LoginView login = new LoginView();
+            login.start(new Stage());
+            currentStage.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     private HBox createMainContent() {
         HBox mainContent = new HBox(20);
