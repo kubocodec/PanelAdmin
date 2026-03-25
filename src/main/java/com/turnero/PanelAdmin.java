@@ -41,13 +41,11 @@ public class PanelAdmin extends Application {
     private Label lblHora;
     private ComboBox<Integer> comboPuestos;
     private Button btnLlamarTurno;
-    private Button btnPausarSistema;
     private Button btnReiniciarTurnos;
     private ProgressIndicator loadingIndicator;
     private VBox statsContainer;
 
     // Variables de estado
-    private boolean sistemaPausado = false;
     private Long idTurnoActual = null;
     private ScheduledExecutorService scheduler;
     private TableView<TurnoDoble> tablaUnificada;
@@ -290,23 +288,26 @@ public class PanelAdmin extends Application {
         // Botones de acción
         VBox botonesContainer = new VBox(15);
 
-        // Botón llamar turno
+        String rolUsuario = UsuarioLogeado.obtenerUsuario() != null
+                ? UsuarioLogeado.obtenerUsuario().getRol() : "";
+        boolean esAdmin = "ADMIN".equalsIgnoreCase(rolUsuario);
+
+        // Botón llamar turno (todos los roles)
         btnLlamarTurno = createStyledButton("📢 LLAMAR SIGUIENTE TURNO", "#27ae60", "#2ecc71");
         btnLlamarTurno.setOnAction(e -> llamarSiguienteTurno());
 
-        // Botón re-llamar turno
+        // Botón re-llamar turno (todos los roles)
         Button btnReLlamarTurno = createStyledButton("🔔 RE-LLAMAR TURNO", "#8e44ad", "#9b59b6");
         btnReLlamarTurno.setOnAction(e -> reLlamarTurnoActual());
 
-        // Botón pausar sistema
-        btnPausarSistema = createStyledButton("⏸️ PAUSAR SISTEMA", "#e67e22", "#f39c12");
-        btnPausarSistema.setOnAction(e -> togglePausarSistema());
+        botonesContainer.getChildren().addAll(btnLlamarTurno, btnReLlamarTurno);
 
-        // Botón reiniciar turnos
-        btnReiniciarTurnos = createStyledButton("🔄 REINICIAR TURNOS", "#c0392b", "#e74c3c");
-        btnReiniciarTurnos.setOnAction(e -> reiniciarTurnos());
-
-        botonesContainer.getChildren().addAll(btnLlamarTurno, btnReLlamarTurno, btnPausarSistema, btnReiniciarTurnos);
+        // Botón reiniciar turnos (solo ADMIN)
+        if (esAdmin) {
+            btnReiniciarTurnos = createStyledButton("🔄 REINICIAR TURNOS", "#c0392b", "#e74c3c");
+            btnReiniciarTurnos.setOnAction(e -> reiniciarTurnos());
+            botonesContainer.getChildren().add(btnReiniciarTurnos);
+        }
 
         // Indicador de carga
         loadingIndicator = new ProgressIndicator();
@@ -750,8 +751,6 @@ private void actualizarTablaUnificada() {
     }
 
     private void actualizarTurnoActual() {
-        if (sistemaPausado) return;
-
         new Thread(() -> {
             HttpURLConnection conn = null;
             try {
@@ -798,11 +797,6 @@ private void actualizarTablaUnificada() {
     }
 
     private void llamarSiguienteTurno() {
-        if (sistemaPausado) {
-            mostrarAlerta("Sistema Pausado", "El sistema está pausado. Active el sistema para continuar.");
-            return;
-        }
-
         showLoading(true);
 
         Timeline delay = new Timeline(new KeyFrame(Duration.millis(800), e -> {
@@ -813,10 +807,6 @@ private void actualizarTablaUnificada() {
     }
 
     private void reLlamarTurnoActual() {
-        if (sistemaPausado) {
-            mostrarAlerta("Sistema Pausado", "El sistema está pausado. Active el sistema para continuar.");
-            return;
-        }
         if (idTurnoActual == null) {
             mostrarAlerta("Sin turno", "No hay ningún turno actual para re-llamar.");
             return;
@@ -910,37 +900,6 @@ private void avanzarTurno(int puestoSeleccionado) {
 }
 
 
-    private void togglePausarSistema() {
-        sistemaPausado = !sistemaPausado;
-
-        if (sistemaPausado) {
-            btnPausarSistema.setText("▶️ REANUDAR SISTEMA");
-            lblEstado.setText("🔴 Sistema Pausado");
-            lblEstado.setStyle(
-                    "-fx-font-size: 14px;" +
-                            "-fx-font-weight: bold;" +
-                            "-fx-text-fill: #c0392b;" +
-                            "-fx-padding: 10px 20px;" +
-                            "-fx-background-color: #fadbd8;" +
-                            "-fx-background-radius: 20px;"
-            );
-            btnLlamarTurno.setDisable(true);
-        } else {
-            btnPausarSistema.setText("⏸️ PAUSAR SISTEMA");
-            lblEstado.setText("🟢 Sistema Activo");
-            lblEstado.setStyle(
-                    "-fx-font-size: 14px;" +
-                            "-fx-font-weight: bold;" +
-                            "-fx-text-fill: #27ae60;" +
-                            "-fx-padding: 10px 20px;" +
-                            "-fx-background-color: #d5f4e6;" +
-                            "-fx-background-radius: 20px;"
-            );
-            btnLlamarTurno.setDisable(false);
-        }
-
-        playStateChangeAnimation();
-    }
 
     private void reiniciarTurnos() {
         Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
