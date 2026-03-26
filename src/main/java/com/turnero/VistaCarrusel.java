@@ -14,6 +14,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -24,24 +26,33 @@ public class VistaCarrusel {
 
     private FlowPane galeria = new FlowPane(15, 15);
     private Label lblMensaje = new Label();
+    private javafx.collections.ObservableList<String> listaNombres = javafx.collections.FXCollections.observableArrayList();
 
     public VBox construir() {
         VBox root = new VBox(20);
         root.setPadding(new Insets(25));
         root.setStyle("-fx-background-color: #f8f9fa;");
 
-        Label titulo = new Label("🖼️ GESTIÓN DE IMÁGENES DEL CARRUSEL");
+        Label titulo = new Label("GESTIÓN DE IMÁGENES DEL CARRUSEL");
+        titulo.setGraphic(FontIcon.of(FontAwesomeSolid.IMAGES, 22, Color.web("#2c3e50")));
         titulo.setFont(Font.font("Arial", FontWeight.BOLD, 22));
         titulo.setTextFill(Color.web("#2c3e50"));
 
-        Button btnSubir = new Button("📤 Subir imagen...");
+        Button btnSubir = new Button("Subir imagen...");
+        btnSubir.setGraphic(FontIcon.of(FontAwesomeSolid.UPLOAD, 14, Color.WHITE));
         btnSubir.setStyle("-fx-background-color: #2980b9; -fx-text-fill: white; -fx-background-radius: 8; -fx-font-size: 14px; -fx-cursor: hand;");
         btnSubir.setPrefHeight(40);
         btnSubir.setOnAction(e -> subirImagen());
 
+        Button btnGuardarOrden = new Button("Guardar orden");
+        btnGuardarOrden.setGraphic(FontIcon.of(FontAwesomeSolid.SAVE, 14, Color.WHITE));
+        btnGuardarOrden.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-background-radius: 8; -fx-font-size: 14px; -fx-cursor: hand;");
+        btnGuardarOrden.setPrefHeight(40);
+        btnGuardarOrden.setOnAction(e -> guardarOrden());
+
         lblMensaje.setFont(Font.font("Arial", 13));
 
-        HBox toolbar = new HBox(15, btnSubir, lblMensaje);
+        HBox toolbar = new HBox(15, btnSubir, btnGuardarOrden, lblMensaje);
         toolbar.setAlignment(Pos.CENTER_LEFT);
 
         ScrollPane scroll = new ScrollPane(galeria);
@@ -65,15 +76,8 @@ public class VistaCarrusel {
                 conn.setConnectTimeout(5000);
                 List<String> nombres = new ObjectMapper().readValue(conn.getInputStream(), new TypeReference<List<String>>() {});
                 Platform.runLater(() -> {
-                    galeria.getChildren().clear();
-                    for (String nombre : nombres) {
-                        galeria.getChildren().add(crearTarjetaImagen(nombre));
-                    }
-                    if (nombres.isEmpty()) {
-                        Label vacio = new Label("No hay imágenes cargadas. Sube una con el botón.");
-                        vacio.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 14px;");
-                        galeria.getChildren().add(vacio);
-                    }
+                    listaNombres.setAll(nombres);
+                    actualizarGaleriaUI();
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> mostrarMensaje("Error al cargar imágenes", false));
@@ -81,7 +85,19 @@ public class VistaCarrusel {
         }).start();
     }
 
-    private VBox crearTarjetaImagen(String nombre) {
+    private void actualizarGaleriaUI() {
+        galeria.getChildren().clear();
+        for (int i = 0; i < listaNombres.size(); i++) {
+            galeria.getChildren().add(crearTarjetaImagen(listaNombres.get(i), i));
+        }
+        if (listaNombres.isEmpty()) {
+            Label vacio = new Label("No hay imágenes cargadas. Sube una con el botón.");
+            vacio.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 14px;");
+            galeria.getChildren().add(vacio);
+        }
+    }
+
+    private VBox crearTarjetaImagen(String nombre, int index) {
         VBox card = new VBox(8);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(10));
@@ -105,13 +121,60 @@ public class VistaCarrusel {
         lblNombre.setFont(Font.font("Arial", 11));
         lblNombre.setTextFill(Color.web("#7f8c8d"));
 
-        Button btnEliminar = new Button("🗑️ Eliminar");
+        HBox controles = new HBox(5);
+        controles.setAlignment(Pos.CENTER);
+
+        Button btnArriba = new Button();
+        btnArriba.setGraphic(FontIcon.of(FontAwesomeSolid.ARROW_UP, 10, Color.web("#34495e")));
+        btnArriba.setDisable(index == 0);
+        btnArriba.setOnAction(e -> moverImagen(index, -1));
+
+        Button btnAbajo = new Button();
+        btnAbajo.setGraphic(FontIcon.of(FontAwesomeSolid.ARROW_DOWN, 10, Color.web("#34495e")));
+        btnAbajo.setDisable(index == listaNombres.size() - 1);
+        btnAbajo.setOnAction(e -> moverImagen(index, 1));
+
+        Button btnEliminar = new Button("Eliminar");
+        btnEliminar.setGraphic(FontIcon.of(FontAwesomeSolid.TRASH, 11, Color.WHITE));
         btnEliminar.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-background-radius: 6; -fx-font-size: 11px; -fx-cursor: hand;");
         btnEliminar.setOnAction(e -> eliminarImagen(nombre));
 
-        card.getChildren().addAll(iv, lblNombre, btnEliminar);
+        controles.getChildren().addAll(btnArriba, btnAbajo, btnEliminar);
+
+        card.getChildren().addAll(iv, lblNombre, controles);
         card.setPrefWidth(200);
         return card;
+    }
+
+    private void moverImagen(int fromIndex, int offset) {
+        int toIndex = fromIndex + offset;
+        if (toIndex >= 0 && toIndex < listaNombres.size()) {
+            String item = listaNombres.remove(fromIndex);
+            listaNombres.add(toIndex, item);
+            actualizarGaleriaUI();
+        }
+    }
+
+    private void guardarOrden() {
+        if (listaNombres.isEmpty()) return;
+        new Thread(() -> {
+            try {
+                URL url = new URL("http://" + ConfigManager.getIp() + ":8080/api/carrusel/orden");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                new ObjectMapper().writeValue(conn.getOutputStream(), listaNombres);
+                
+                int code = conn.getResponseCode();
+                Platform.runLater(() -> {
+                    if (code == 200) mostrarMensaje("✅ Orden guardado correctamente", true);
+                    else mostrarMensaje("Error al guardar orden", false);
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> mostrarMensaje("Error de conexión", false));
+            }
+        }).start();
     }
 
     private void subirImagen() {

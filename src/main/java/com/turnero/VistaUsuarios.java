@@ -31,7 +31,8 @@ public class VistaUsuarios {
         root.setPadding(new Insets(25));
         root.setStyle("-fx-background-color: #f8f9fa;");
 
-        Label titulo = new Label("👥 GESTIÓN DE USUARIOS");
+        Label titulo = new Label("GESTIÓN DE USUARIOS");
+        titulo.setGraphic(org.kordamp.ikonli.javafx.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.USERS, 22, javafx.scene.paint.Color.web("#2c3e50")));
         titulo.setFont(Font.font("Arial", FontWeight.BOLD, 22));
         titulo.setTextFill(javafx.scene.paint.Color.web("#2c3e50"));
 
@@ -82,10 +83,10 @@ public class VistaUsuarios {
         grid.add(new Label("Contraseña:"), 0, 2); grid.add(txtPassword, 1, 2);
         grid.add(new Label("Rol:"), 0, 3);       grid.add(comboRol, 1, 3);
 
-        Button btnGuardar  = crearBoton("💾 Guardar", "#27ae60");
-        Button btnEditar   = crearBoton("✏️ Actualizar", "#2980b9");
-        Button btnEliminar = crearBoton("🗑️ Eliminar", "#c0392b");
-        Button btnLimpiar  = crearBoton("✖ Limpiar", "#7f8c8d");
+        Button btnGuardar  = crearBoton("Guardar", "#27ae60", org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SAVE);
+        Button btnEditar   = crearBoton("Actualizar", "#2980b9", org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.PENCIL_ALT);
+        Button btnEliminar = crearBoton("Eliminar", "#c0392b", org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TRASH);
+        Button btnLimpiar  = crearBoton("Limpiar", "#7f8c8d", org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TIMES);
 
         btnGuardar.setOnAction(e -> guardarUsuario());
         btnEditar.setOnAction(e -> actualizarUsuario());
@@ -102,8 +103,9 @@ public class VistaUsuarios {
         return root;
     }
 
-    private Button crearBoton(String texto, String color) {
+    private Button crearBoton(String texto, String color, org.kordamp.ikonli.Ikon icon) {
         Button b = new Button(texto);
+        b.setGraphic(org.kordamp.ikonli.javafx.FontIcon.of(icon, 14, Color.WHITE));
         b.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-background-radius: 8; -fx-font-size: 13px; -fx-cursor: hand;");
         b.setPrefHeight(35);
         return b;

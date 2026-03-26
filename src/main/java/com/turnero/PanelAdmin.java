@@ -1,6 +1,8 @@
 package com.turnero;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.kordamp.ikonli.javafx.FontIcon;
+
 import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -88,10 +90,17 @@ public class PanelAdmin extends Application {
             tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
             tabPane.setStyle("-fx-tab-min-height: 40px; -fx-font-size: 14px;");
 
-            Tab tabTurnos = new Tab("📋  Turnos",    createMainLayout());
-            Tab tabUsers  = new Tab("👥  Usuarios",  new ScrollPane(new VistaUsuarios().construir()));
-            Tab tabCats   = new Tab("📂  Categorías", new ScrollPane(new VistaCategorias().construir()));
-            Tab tabCarr   = new Tab("🖼️  Carrusel",  new ScrollPane(new VistaCarrusel().construir()));
+            Tab tabTurnos = new Tab("Turnos", createMainLayout());
+            Tab tabUsers  = new Tab("Usuarios", new ScrollPane(new VistaUsuarios().construir()));
+            Tab tabCats   = new Tab("Categorías", new ScrollPane(new VistaCategorias().construir()));
+            Tab tabCarr   = new Tab("Carrusel", new ScrollPane(new VistaCarrusel().construir()));
+            
+            tabTurnos.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CLIPBOARD_LIST, 16));
+            tabUsers.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.USERS, 16));
+            tabCats.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.FOLDER_OPEN, 16));
+            tabCarr.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.IMAGES, 16));
+            
+            tabPane.setTabMinWidth(80);
 
             tabTurnos.setStyle("-fx-background-color: #27ae60;");
 
@@ -113,6 +122,13 @@ public class PanelAdmin extends Application {
 
         stage.setScene(scene);
         stage.centerOnScreen();
+        
+        stage.setOnCloseRequest(e -> {
+            stop();
+            Platform.exit();
+            System.exit(0);
+        });
+        
         stage.show();
 
         inicializarSistema();
@@ -150,7 +166,9 @@ public class PanelAdmin extends Application {
         HBox topRow = new HBox();
         topRow.setAlignment(Pos.CENTER_LEFT);
 
-        Label titulo = new Label("🏢 SISTEMA DE ADMINISTRACIÓN DE TURNOS");
+        Label titulo = new Label("SISTEMA DE ADMINISTRACIÓN DE TURNOS");
+        titulo.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.BUILDING, 24, Color.WHITE));
+        titulo.setWrapText(true);
         titulo.setStyle(
                 "-fx-font-size: 28px;" +
                         "-fx-font-weight: bold;" +
@@ -164,10 +182,12 @@ public class PanelAdmin extends Application {
         // Info del usuario logueado
         Usuario u = UsuarioLogeado.obtenerUsuario();
         String nombreUsuario = u != null ? u.getNombre() + " (" + u.getRol() + ")" : "";
-        Label lblUsuario = new Label("👤 " + nombreUsuario);
+        Label lblUsuario = new Label("Usuario: " + nombreUsuario);
+        lblUsuario.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.USER, 14, Color.WHITE));
         lblUsuario.setStyle("-fx-text-fill: rgba(255,255,255,0.9); -fx-font-size: 13px;");
 
-        Button btnLogout = new Button("🚪 Cerrar sesión");
+        Button btnLogout = new Button("Cerrar sesión");
+        btnLogout.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SIGN_OUT_ALT, 14, Color.WHITE));
         btnLogout.setStyle(
                 "-fx-background-color: rgba(255,255,255,0.2);" +
                 "-fx-text-fill: white;" +
@@ -250,14 +270,17 @@ public class PanelAdmin extends Application {
         // Panel izquierdo - Control de turnos
         VBox leftPanel = createControlPanel();
         HBox.setHgrow(leftPanel, Priority.ALWAYS);
+        leftPanel.setMinWidth(180);
 
         // Panel central - Información actual
         VBox centerPanel = createCurrentTurnPanel();
         HBox.setHgrow(centerPanel, Priority.ALWAYS);
+        centerPanel.setMinWidth(200);
 
         // Panel derecho - Estadísticas
         VBox rightPanel = createStatsPanel();
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
+        rightPanel.setMinWidth(180);
 
         mainContent.getChildren().addAll(leftPanel, centerPanel, rightPanel);
 
@@ -275,7 +298,8 @@ public class PanelAdmin extends Application {
         );
 
         // Título del panel
-        Label titulo = new Label("🎛️ CONTROL DE TURNOS");
+        Label titulo = new Label("CONTROL DE TURNOS");
+        titulo.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SLIDERS_H, 18, Color.web("#2c3e50")));
         titulo.setStyle(
                 "-fx-font-size: 18px;" +
                         "-fx-font-weight: bold;" +
@@ -288,7 +312,8 @@ public class PanelAdmin extends Application {
 
         // Selección de puesto
         VBox puestoContainer = new VBox(10);
-        Label lblPuesto = new Label("📍 Seleccionar Puesto de Atención:");
+        Label lblPuesto = new Label("Seleccionar Puesto de Atención:");
+        lblPuesto.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.MAP_MARKER_ALT, 14, Color.web("#34495e")));
         lblPuesto.setStyle(
                 "-fx-font-size: 14px;" +
                         "-fx-font-weight: bold;" +
@@ -313,7 +338,8 @@ public class PanelAdmin extends Application {
 
         // Sección de categoría
         VBox categoriaContainer = new VBox(10);
-        Label lblCategoria = new Label("📂 Seleccionar Categoría:");
+        Label lblCategoria = new Label("Seleccionar Categoría:");
+        lblCategoria.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.FOLDER_OPEN, 14, Color.web("#34495e")));
         lblCategoria.setStyle(
                 "-fx-font-size: 14px;" +
                         "-fx-font-weight: bold;" +
@@ -336,7 +362,8 @@ public class PanelAdmin extends Application {
 
 // Sección de tipo
         VBox tipoContainer = new VBox(10);
-        Label lblTipo = new Label("🧾 Tipo:");
+        Label lblTipo = new Label("Tipo:");
+        lblTipo.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.RECEIPT, 14, Color.web("#34495e")));
         lblTipo.setStyle(
                 "-fx-font-size: 14px;" +
                         "-fx-font-weight: bold;" +
@@ -368,18 +395,21 @@ public class PanelAdmin extends Application {
         boolean esAdmin = "ADMIN".equalsIgnoreCase(rolUsuario);
 
         // Botón llamar turno (todos los roles)
-        btnLlamarTurno = createStyledButton("📢 LLAMAR SIGUIENTE TURNO", "#27ae60", "#2ecc71");
+        btnLlamarTurno = createStyledButton("LLAMAR SIGUIENTE TURNO", "#27ae60", "#2ecc71");
+        btnLlamarTurno.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.BULLHORN, 14, Color.WHITE));
         btnLlamarTurno.setOnAction(e -> llamarSiguienteTurno());
 
         // Botón re-llamar turno (todos los roles)
-        Button btnReLlamarTurno = createStyledButton("🔔 RE-LLAMAR TURNO", "#8e44ad", "#9b59b6");
+        Button btnReLlamarTurno = createStyledButton("RE-LLAMAR TURNO", "#8e44ad", "#9b59b6");
+        btnReLlamarTurno.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.BELL, 14, Color.WHITE));
         btnReLlamarTurno.setOnAction(e -> reLlamarTurnoActual());
 
         botonesContainer.getChildren().addAll(btnLlamarTurno, btnReLlamarTurno);
 
         // Botón reiniciar turnos (solo ADMIN)
         if (esAdmin) {
-            btnReiniciarTurnos = createStyledButton("🔄 REINICIAR TURNOS", "#c0392b", "#e74c3c");
+            btnReiniciarTurnos = createStyledButton("REINICIAR TURNOS", "#c0392b", "#e74c3c");
+            btnReiniciarTurnos.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.REDO, 14, Color.WHITE));
             btnReiniciarTurnos.setOnAction(e -> reiniciarTurnos());
             botonesContainer.getChildren().add(btnReiniciarTurnos);
         }
@@ -510,7 +540,6 @@ public class PanelAdmin extends Application {
 
 private VBox createCurrentTurnPanel() {
     VBox panel = new VBox(20);
-    panel.setMinWidth(280);
     panel.setPadding(new Insets(25));
     panel.setAlignment(Pos.CENTER);
     panel.setStyle(
@@ -520,7 +549,8 @@ private VBox createCurrentTurnPanel() {
     );
 
     // Título del panel
-    Label titulo = new Label("🎯 TURNO ACTUAL");
+    Label titulo = new Label("TURNO ACTUAL");
+    titulo.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CROSSHAIRS, 18, Color.web("#2c3e50")));
     titulo.setStyle(
             "-fx-font-size: 18px;" +
                     "-fx-font-weight: bold;" +
@@ -554,7 +584,8 @@ private VBox createCurrentTurnPanel() {
     turnoContainer.getChildren().addAll(lblTurnoActual, lblCategoria);
 
     // Estado del sistema
-    lblEstado = new Label("🟢 Sistema Activo");
+    lblEstado = new Label("Sistema Activo");
+    lblEstado.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CHECK_CIRCLE, 14, Color.web("#27ae60")));
     lblEstado.setStyle(
             "-fx-font-size: 14px;" +
                     "-fx-font-weight: bold;" +
@@ -641,7 +672,8 @@ private void actualizarTablaUnificada() {
         );
 
         // Título del panel
-        Label titulo = new Label("📋 TURNOS DEL DÍA");
+        Label titulo = new Label("TURNOS DEL DÍA");
+        titulo.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CLIPBOARD_LIST, 18, Color.web("#2c3e50")));
         titulo.setStyle(
                 "-fx-font-size: 18px;" +
                         "-fx-font-weight: bold;" +
@@ -656,7 +688,12 @@ private void actualizarTablaUnificada() {
         statsContainer = new VBox(15);
 
 
-        panel.getChildren().addAll(titulo, separador, statsContainer);
+        ScrollPane scrollStats = new ScrollPane(statsContainer);
+        scrollStats.setFitToWidth(true);
+        scrollStats.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+        VBox.setVgrow(scrollStats, Priority.ALWAYS);
+
+        panel.getChildren().addAll(titulo, separador, scrollStats);
 
         return panel;
     }
@@ -674,8 +711,10 @@ private void actualizarTablaUnificada() {
         HBox header = new HBox(10);
         header.setAlignment(Pos.CENTER_LEFT);
 
-        Label iconLabel = new Label(icon);
-        iconLabel.setStyle("-fx-font-size: 20px;");
+        org.kordamp.ikonli.javafx.FontIcon iconLabel = new org.kordamp.ikonli.javafx.FontIcon();
+        iconLabel.setIconLiteral(icon);
+        iconLabel.setIconSize(20);
+        iconLabel.setIconColor(Color.web(color));
 
         Label tituloLabel = new Label(titulo);
         tituloLabel.setStyle(
@@ -719,7 +758,9 @@ private void actualizarTablaUnificada() {
                         "-fx-border-width: 1px 0 0 0;"
         );
 
-        Label info = new Label("💻 Sistema de Turnos v2.0 | Desarrollado por kubocode | 2025");
+        Label info = new Label("Sistema de Turnos v2.0 | Desarrollado por kubocode | 2025");
+        info.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.DESKTOP, 12, Color.web("#bdc3c7")));
+        info.setWrapText(true);
         info.setStyle(
                 "-fx-font-size: 12px;" +
                         "-fx-text-fill: #bdc3c7;"
@@ -822,7 +863,8 @@ private void actualizarTablaUnificada() {
     private void actualizarHora() {
         LocalDateTime now = LocalDateTime.now();
         String horaFormateada = now.format(DateTimeFormatter.ofPattern("HH:mm:ss | dd/MM/yyyy"));
-        lblHora.setText("🕐 " + horaFormateada);
+        lblHora.setText(horaFormateada);
+        lblHora.setGraphic(FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CLOCK, 14, Color.web("rgba(255,255,255,0.8)")));
     }
 
     private void actualizarTurnoActual() {
@@ -1037,7 +1079,7 @@ private void actualizarEstadisticas() {
                     String cantidad = String.valueOf(entry.getValue());
 
                     // Ícono y color fijos
-                    String icono = "\uD83D\uDCD1";
+                    String icono = "fas-clipboard-check";
                     String color = "#6e0dc9";
 
                     VBox stat = createStatCard(icono, categoria, cantidad, color);
