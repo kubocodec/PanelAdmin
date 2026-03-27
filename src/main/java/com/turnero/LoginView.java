@@ -238,10 +238,25 @@ public class LoginView extends Application {
                 errorLabel
         );
 
+        // Botón para cambiar IP del Servidor
+        Button btnConfigServer = new Button("Cambiar IP Servidor");
+        btnConfigServer.setGraphic(org.kordamp.ikonli.javafx.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.COG, 14, javafx.scene.paint.Color.web("#7f8c8d")));
+        btnConfigServer.setStyle("-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 12px; -fx-cursor: hand; -fx-underline: true;");
+        btnConfigServer.setOnAction(e -> {
+            ConfigWindow cw = new ConfigWindow();
+            cw.start(new Stage());
+            primaryStage.close();
+        });
+        
+        VBox footer = new VBox(btnConfigServer);
+        footer.setAlignment(Pos.BOTTOM_CENTER);
+        VBox.setMargin(footer, new Insets(30, 0, 0, 0));
+
         rightPanel.getChildren().addAll(
                 formTitle,
                 formSubtitle,
-                loginContainer
+                loginContainer,
+                footer
         );
 
         return rightPanel;
